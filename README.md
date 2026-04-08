@@ -6,17 +6,22 @@
 
 使用方法：
 
+1.下载libs、backend.jar和renju.html
 
-1.用java运行backend.jar后端。初次启动后端会搭建gcc环境，所以会慢，多等一会
+2.libs文件一定要放在和backend.jar文件同一目录下
+
+3.用java运行backend.jar后端。初次启动后端会搭建gcc环境，所以会慢，多等一会
+
+在有java环境的目录执行：java -jar backend.x.x.x.jar
 
 
-2.运行renju.html
+4.运行renju.html
 
 
-3.填写好后端的ip，默认端口8081（一定要确认对局双方在一个局域网内，校园网不可以！！！！用热点，或使用内网穿透）
+5.填写好后端的ip，默认端口8081（一定要确认对局双方在一个局域网内，校园网不可以！！！！用热点，或使用内网穿透）
 
 
-4.开始游戏
+6.开始游戏
 
 
 
