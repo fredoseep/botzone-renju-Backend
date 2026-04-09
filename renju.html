@@ -166,8 +166,20 @@
         </div>
     </div>
 
-    <div id="board" class="hidden"></div>
-    
+<div style="display: flex; justify-content: center; align-items: stretch; gap: 30px; margin: 20px auto; width: 900px;">
+        
+        <div id="board" class="hidden"></div>
+        
+        <div id="debug-panel" class="hidden panel" style="width: 350px; margin: 0; display: flex; flex-direction: column; text-align: left; background: #fff3e0; border: 2px dashed #ffb74d;">
+            <h4 style="margin: 0 0 10px 0; color: #e65100;">
+                🖥️ 运行时调试终端 <br>
+                <span style="font-size: 13px; color: #666;">(第 <span id="debug-step">-</span> 步 | 耗时: <span id="debug-time">-</span> ms)</span>
+            </h4>
+            <pre id="debug-content" style="flex-grow: 1; margin: 0; background: #282c34; color: #a9b7c6; padding: 12px; border-radius: 6px; overflow-y: auto; font-family: monospace; font-size: 13px; white-space: pre-wrap; box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);">
+点击棋盘上的棋子以查看该回合的 System.out / cout 输出。
+            </pre>
+        </div>
+    </div>    
 
     <script>
         window.onload = function() {
@@ -602,11 +614,31 @@ function updateReplayBoard() {
                         piece.innerText = stepNum; 
                         
                         const log = currentLogs.find(l => l.x === i && l.y === j);
-                        if (log) {
+                       if (log) {
                             piece.title = `第 ${log.step} 步\n思考耗时: ${log.responseTime} ms`;
-                            piece.style.cursor = "help"; 
+                            
+                            // 【新增】：强化可点击的视觉暗示，并绑定点击事件
+                            piece.style.cursor = "pointer"; 
+                            piece.style.transition = "transform 0.1s";
+                            piece.onmouseover = () => piece.style.transform = "scale(1.15)";
+                            piece.onmouseout = () => piece.style.transform = "scale(1)";
+                            
+                            piece.onclick = function() {
+                                // 显示调试面板并填充数据
+                                document.getElementById("debug-panel").classList.remove("hidden");
+                                document.getElementById("debug-step").innerText = log.step;
+                                document.getElementById("debug-time").innerText = log.responseTime;
+                                
+                                const contentEl = document.getElementById("debug-content");
+                                if (log.debugLog && log.debugLog.trim() !== "") {
+                                    contentEl.innerText = log.debugLog;
+                                    contentEl.style.color = "#a6e22e"; // 绿色代表有输出
+                                } else {
+                                    contentEl.innerText = "// 该回合程序没有产生任何标准输出。";
+                                    contentEl.style.color = "#75715e"; // 灰色代表无输出
+                                }
+                            };
                         }
-                        // ==========================================
                     }
                 }
             }
