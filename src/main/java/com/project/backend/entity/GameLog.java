@@ -7,13 +7,15 @@ public class GameLog {
     public int x;
     public int y;
     public long responseTime; // 响应时间 (毫秒)
+    public String debugLog;
 
-    public GameLog(int step, int player, String color, int x, int y, long responseTime) {
+    public GameLog(int step, int player, String color, int x, int y, long responseTime, String debugLog) {
         this.step = step;
         this.player = player;
         this.color = color;
         this.x = x;
         this.y = y;
         this.responseTime = responseTime;
+        this.debugLog = debugLog;
     }
 }

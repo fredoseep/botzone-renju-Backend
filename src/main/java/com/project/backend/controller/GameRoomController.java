@@ -198,7 +198,7 @@ public class GameRoomController {
             if ("java".equals(currentLang)) {
                 File libFile = new File("libs/json-simple-1.1.1.jar");
                 String cp = botDir.getAbsolutePath() + File.pathSeparator + libFile.getAbsolutePath();
-                commandToRun = "java -cp \"" + cp + "\" Main";
+                commandToRun = "java -Dfile.encoding=UTF-8 -cp \"" + cp + "\" Main";
             } else if ("cpp".equals(currentLang)) {
                 String execName = isWindows ? "bot.exe" : "bot";
                 commandToRun = new File(botDir, execName).getAbsolutePath();
@@ -230,14 +230,10 @@ public class GameRoomController {
             int currentStep = room.history1.size() + room.history2.size() + 1;
             String colorName = (room.currentPlayer == 1) ? "Black" : "White";
 
-            GameLog log = new GameLog(
-                    currentStep,
-                    room.currentPlayer,
-                    colorName,
-                    nextMove.x,
-                    nextMove.y,
-                    responseTime
-            );
+            String debugInfo = nextMove.debugLog != null ? nextMove.debugLog : "";
+
+            // 注意最后多传了一个 debugInfo
+            GameLog log = new GameLog(currentStep, room.currentPlayer, colorName, nextMove.x, nextMove.y, responseTime, debugInfo);
             room.logs.add(log);
 
             room.board[nextMove.x][nextMove.y] = room.currentPlayer;
