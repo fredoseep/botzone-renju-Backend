@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>局域网联机 - Bot对决</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; background: #f4f4f9; color: #333;}
+        .panel { padding: 20px; background: white; margin: 15px auto; width: 600px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .panel h3 { margin-top: 0; color: #444; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        
+        input[type="text"] { padding: 8px; font-size: 16px; border: 1px solid #ccc; border-radius: 4px; text-align: center; margin: 0 5px; }
+        button { padding: 8px 16px; cursor: pointer; background: #2196F3; color: white; border: none; border-radius: 4px; font-size: 15px; transition: background 0.2s;}
+        button:hover { background: #1976D2; }
+        button:disabled { background: #cccccc; cursor: not-allowed; }
+        
+       #board {
+    display: grid;
+    grid-template-columns: repeat(15, 30px);
+    grid-template-rows: repeat(15, 30px);
+    background-color: #DEB887; /* 棋盘木色 */
+    width: fit-content;
+    margin: 20px auto;
+    padding: 10px; 
+    border: 3px solid #5c4033; /* 深木色外边框 */
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+
+/* 2. 单元格：作为十字线和棋子的容器 */
+.cell {
+    position: relative;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 3. 画棋盘的交叉线：利用伪元素在每个格子中心画十字 */
+.cell::before, .cell::after {
+    content: '';
+    position: absolute;
+    background-color: #333; /* 线条的颜色 */
+    z-index: 1; /* 线条层级在下 */
+}
+
+/* 画横线：贯穿整个格子中间 */
+.cell::before {
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 1px;
+}
+
+/* 画竖线：贯穿整个格子中间 */
+.cell::after {
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 1px;
+}
+
+/* 4. 棋子样式：增加 z-index 确保盖在线上 */
+.piece {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    position: relative;
+    z-index: 2; /* 棋子层级在上，压住交叉线 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: bold;
+    font-family: Arial, sans-serif;
+}
+
+.black { 
+    background-color: #111; 
+    box-shadow: 2px 2px 4px rgba(0,0,0,0.5); 
+    color: #fff; /* 黑棋白字 */
+}
+.white { 
+    background-color: #eee; 
+    box-shadow: 2px 2px 4px rgba(0,0,0,0.5); 
+    color: #000; /* 白棋黑字 */
+}
+        
+        .hidden { display: none !important; }
+        .server-input-group { display: flex; justify-content: center; align-items: center; gap: 5px; margin-bottom: 15px;}
+    </style>
+</head>
+<body>
+
+    <h1>Bot 局域网联机平台</h1>
+    
+    <div id="server-panel" class="panel">
+        <h3>第一步：连接对战服务器</h3>
+        <p style="font-size: 14px; color: #666;">请询问房主并输入服务器所在的局域网 IP 地址</p>
+        
+        <div class="server-input-group">
+            <span>http://</span>
+            <input type="text" id="server-ip" placeholder="192.168.x.x" value="localhost" style="width: 140px;">
+            <span style="font-weight: bold;">:</span>
+            <input type="text" id="server-port" placeholder="8081" value="8081" style="width: 70px;">
+        </div>
+        
+        <button onclick="setServer()">确认并进入大厅</button>
+    </div>
+
+    <div id="lobby-panel" class="panel hidden">
+        <h3>第二步：房间大厅</h3>
+        <div style="margin-bottom: 15px;">
+            <button onclick="createRoom()" style="background: #4CAF50;">新建房间 (我是房主)</button>
+        </div>
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;">
+        <div>
+            <input type="text" id="join-roomId" placeholder="输入4位邀请码" style="width: 120px; text-transform: uppercase;">
+            <button onclick="joinRoom()" style="background: #FF9800;">加入房间 (挑战者)</button>
+        </div>
+    </div>
+
+    <div id="game-panel" class="panel hidden">
+        <h2>房间号: <span id="display-roomId" style="color:#d32f2f; letter-spacing: 2px;"></span></h2>
+        <h3 id="my-role-text" style="color: #1565c0;"></h3>
+        
+        <div style="margin: 20px 0; padding: 15px; background: #f9f9f9; border-radius: 8px;">
+            <input type="file" id="botFile" accept=".java,.cpp">
+            <button onclick="uploadMyBot()" id="btn-upload">上传我的 Bot (Java/C++)</button>
+            <div id="upload-status" style="margin-top: 10px; font-weight: bold;"></div>
+            
+            <pre id="compile-error-log" class="hidden" style="
+                text-align: left; 
+                background: #282c34; 
+                color: #ff5252; 
+                padding: 15px; 
+                border-radius: 6px; 
+                overflow-x: auto; 
+                font-family: monospace; 
+                font-size: 14px; 
+                margin-top: 15px;
+                white-space: pre-wrap;
+            "></pre>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+            对手状态: <span id="opponent-status" style="color:gray; font-weight: bold;">等待上传...</span>
+        </div>
+
+       <div>
+            <button id="btn-start" class="hidden" onclick="startGame()" style="background: #e91e63; font-size: 18px; padding: 10px 20px;">▶ 开始自动对战</button>
+            <button id="btn-restart" class="hidden" onclick="restartGame()" style="background: #4CAF50; font-size: 18px; padding: 10px 20px;">🔄 再来一局</button>
+        </div>
+
+        <h3 id="game-info" style="margin-top: 20px;">请双方先上传代码</h3>
+    </div>
+<div id="replay-controls" class="hidden panel" style="background: #fff3e0; margin-top: 0; padding: 15px; border: 2px dashed #ffb74d;">
+        <h4 style="margin: 0 0 10px 0; color: #e65100;">📺 对局复盘播放器</h4>
+        <div style="display: flex; justify-content: center; align-items: center; gap: 15px;">
+            <button onclick="prevStep()" style="background: #fb8c00;">⬅️ 后退一步</button>
+            <span id="replay-step-display" style="font-size: 18px; font-weight: bold; font-family: monospace;">0 / 0</span>
+            <button onclick="nextStep()" style="background: #fb8c00;">前进一步 ➡️</button>
+        </div>
+        <div style="margin-top: 10px;">
+            跳转至：<input type="number" id="jump-step-input" style="width: 60px; padding: 4px;" min="0"> 步
+            <button onclick="jumpStep()" style="background: #757575; padding: 4px 10px;">跳转</button>
+        </div>
+    </div>
+
+    <div id="board" class="hidden"></div>
+    
+
+    <script>
+        window.onload = function() {
+    // 读取 IP 和端口
+    const savedIp = localStorage.getItem("server_ip");
+    const savedPort = localStorage.getItem("server_port");
+    if (savedIp) document.getElementById("server-ip").value = savedIp;
+    if (savedPort) document.getElementById("server-port").value = savedPort;
+
+    // 检查是否有缓存的代码
+    const savedCode = localStorage.getItem("last_bot_code");
+    if (savedCode) {
+        document.getElementById("upload-status").innerText = "📜 检测到上次的代码记录，可直接上传。";
+        document.getElementById("upload-status").style.color = "#666";
+        // 增加一个“使用上次代码”按钮
+        const quickBtn = document.createElement("button");
+        quickBtn.id = "btn-use-cache";
+        quickBtn.innerText = "使用记录的代码";
+        quickBtn.style.marginLeft = "10px";
+        quickBtn.style.background = "#9c27b0";
+        quickBtn.onclick = uploadCachedCode;
+        document.getElementById("btn-upload").after(quickBtn);
+    }
+};
+let myClientId = sessionStorage.getItem("my_client_id");
+        if (!myClientId) {
+            myClientId = 'client_' + Math.random().toString(36).substr(2, 9);
+            sessionStorage.setItem("my_client_id", myClientId);
+        }
+        // 核心变量声明
+        let currentLogs = []; // 存放当前房间的对局日志，用于悬停显示时间
+        let replayMoves = []; // 存储排序好的所有历史落子
+        let currentReplayStep = 0; // 当前播放到的步数
+        let isReplaying = false; // 是否处于回放模式
+        let SERVER = ""; // 服务器地址现在由用户输入动态生成
+        let currentRoomId = "";
+        let myRole = 0; // 1代表黑子(房主), 2代表白子(加入者)
+        let isHost = false;
+        let pollInterval = null;
+
+        // --- 新增：设置服务器地址 ---
+        function setServer() {
+            let ip = document.getElementById("server-ip").value.trim();
+            const port = document.getElementById("server-port").value.trim();
+            
+            if (!ip || !port) {
+                alert("请输入有效的 IP 地址和端口！");
+                return;
+            }
+
+            // 清理用户可能误填的 http:// 前缀
+            ip = ip.replace(/^https?:\/\//, '');
+            localStorage.setItem("server_ip", ip);
+    localStorage.setItem("server_port", port);
+            
+            SERVER = `http://${ip}:${port}`;
+            
+            // 切换面板显示
+            document.getElementById("server-panel").classList.add("hidden");
+            document.getElementById("lobby-panel").classList.remove("hidden");
+        }
+
+        // 1. 创建房间
+        async function createRoom() {
+            try {
+                const res = await fetch(`${SERVER}/api/room/create?clientId=${myClientId}`, { method: 'POST' });
+          
+                if (!res.ok) {
+                    const errorMsg = await res.text();
+                    throw new Error("后端内部错误: " + errorMsg);
+                }
+                
+                currentRoomId = await res.text();
+            
+                isHost = true;
+                myRole = 1;
+                
+                enterRoomUI();
+            } catch (e) {
+                alert("创建房间失败！\n\n原因：" + e.message + "\n\n💡 检查建议：请看一眼你运行 Java 后端的控制台，确认 Spring Boot 是不是已经挂掉/停止运行了？");
+            }
+        }
+
+function updateReplayBoard() {
+            document.getElementById("replay-step-display").innerText = `${currentReplayStep} / ${replayMoves.length}`;
+            
+            // 构建一个全部为空的 15x15 虚拟棋盘
+            let tempBoard = Array(15).fill(0).map(x => Array(15).fill(0));
+            
+            // 将从第 1 步到 currentReplayStep 步的棋子放进去，并附带步数对象
+            for(let i = 0; i < currentReplayStep; i++) {
+                let move = replayMoves[i];
+                tempBoard[move.x][move.y] = { player: move.player, step: move.step };
+            }
+            
+            drawBoard(tempBoard); // 利用修改后的 drawBoard 渲染带有数字的虚拟棋盘
+        }
+
+        function prevStep() {
+            if(currentReplayStep > 0) {
+                currentReplayStep--;
+                updateReplayBoard();
+            }
+        }
+
+        function nextStep() {
+            if(currentReplayStep < replayMoves.length) {
+                currentReplayStep++;
+                updateReplayBoard();
+            }
+        }
+
+        function jumpStep() {
+            let val = parseInt(document.getElementById("jump-step-input").value);
+            if(isNaN(val) || val < 0) val = 0;
+            if(val > replayMoves.length) val = replayMoves.length;
+            currentReplayStep = val;
+            updateReplayBoard();
+        }
+        async function uploadCachedCode() {
+            const cachedCode = localStorage.getItem("last_bot_code");
+            // 【新增】：读取缓存的语言类型，如果没有默认当作 java
+            const cachedLang = localStorage.getItem("last_bot_lang") || "java"; 
+            
+            if (!cachedCode) return;
+
+            const statusText = document.getElementById("upload-status");
+            const errorLogEl = document.getElementById("compile-error-log");
+            
+            statusText.innerText = `⏳ 正在恢复并编译记录的代码 (${cachedLang.toUpperCase()})...`;
+            errorLogEl.classList.add("hidden");
+
+            try {
+                // 【修改】：在 URL 末尾拼上 ?lang= 参数
+                const res = await fetch(`${SERVER}/api/room/${currentRoomId}/upload-text/${myRole}?lang=${cachedLang}`, { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: cachedCode 
+                });
+                
+                if (res.ok) {
+                    statusText.innerText = "✅ 记录的代码编译成功！";
+                    statusText.style.color = "green";
+                } else {
+                    const errMsg = await res.text();
+                    statusText.innerText = "❌ 编译失败，请检查报错！";
+                    errorLogEl.innerText = errMsg;
+                    errorLogEl.classList.remove("hidden");
+                }
+            } catch (e) {
+                statusText.innerText = "❌ 连接失败";
+            }
+        }
+
+        // 2. 加入房间
+        async function joinRoom() {
+            const inputId = document.getElementById("join-roomId").value.trim().toUpperCase();
+            if (!inputId) return alert("请输入房间号");
+            
+            // 加入前可以先请求一下状态，确认房间存在
+            try {
+                const res = await fetch(`${SERVER}/api/room/${inputId}`);
+                if (!res.ok || !await res.json()) throw new Error("房间不存在或无法连接");
+                
+                currentRoomId = inputId;
+                myRole = 2;
+                isHost = false;
+                enterRoomUI();
+            } catch (e) {
+                alert("加入失败: " + e.message);
+            }
+        }
+
+        // 如果连接彻底失败，允许用户回退重新输入IP
+        function resetToServerSetup() {
+            document.getElementById("server-panel").classList.remove("hidden");
+            document.getElementById("lobby-panel").classList.add("hidden");
+        }
+
+        // 进入房间 UI 变更
+        function enterRoomUI() {
+            document.getElementById("lobby-panel").classList.add("hidden");
+            document.getElementById("game-panel").classList.remove("hidden");
+            document.getElementById("board").classList.remove("hidden");
+            document.getElementById("display-roomId").innerText = currentRoomId;
+            document.getElementById("my-role-text").innerText = myRole === 1 ? "你是 Player 1 (黑子 - 房主)" : "你是 Player 2 (白子 - 挑战者)";
+            
+            if (isHost) document.getElementById("btn-start").classList.remove("hidden");
+            
+            initBoard();
+            // 每秒轮询一次获取房间状态
+            pollInterval = setInterval(syncRoomState, 1000);
+        }
+
+        // 3. 上传代码
+     async function uploadMyBot() {
+            const file = document.getElementById("botFile").files[0];
+            if (!file) return alert("请先选择文件！");
+
+            // 【新增】：判断文件后缀，记录语言类型
+            const fileName = file.name.toLowerCase();
+            const lang = fileName.endsWith(".cpp") ? "cpp" : "java";
+
+            // 读取文件内容用于记忆
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                localStorage.setItem("last_bot_code", e.target.result);
+                localStorage.setItem("last_bot_lang", lang); // 【新增】保存语言类型
+            };
+            reader.readAsText(file);
+            
+            const uploadBtn = document.getElementById("btn-upload");
+            const statusText = document.getElementById("upload-status");
+            const errorLogEl = document.getElementById("compile-error-log"); // 【新增】
+            
+            uploadBtn.disabled = true;
+            statusText.innerText = "⏳ 正在上传并编译...";
+            statusText.style.color = "#1565c0";
+            errorLogEl.classList.add("hidden"); // 每次上传前隐藏上一次的报错
+
+            const fd = new FormData();
+            fd.append("file", file);
+
+            try {
+                const res = await fetch(`${SERVER}/api/room/${currentRoomId}/upload/${myRole}`, { 
+                    method: 'POST', 
+                    body: fd 
+                });
+                
+                if (res.ok) {
+                    statusText.innerText = "✅ 编译成功，准备就绪！";
+                    statusText.style.color = "green";
+                } else {
+                    const errMsg = await res.text();
+                    statusText.innerText = "❌ 编译失败，请检查报错信息！";
+                    statusText.style.color = "#d32f2f";
+                    
+                    // 【新增】：将后端传来的详细错误显示在代码块里
+                    errorLogEl.innerText = errMsg;
+                    errorLogEl.classList.remove("hidden");
+                    uploadBtn.disabled = false;
+                }
+            } catch (e) {
+                statusText.innerText = "❌ 网络连接断开";
+                statusText.style.color = "#d32f2f";
+                uploadBtn.disabled = false;
+            }
+    
+        }
+
+        // 4. 同步房间状态（核心刷新机制）
+       async function syncRoomState() {
+            try {
+                const res = await fetch(`${SERVER}/api/room/${currentRoomId}`);
+                if (!res.ok) return;
+                const room = await res.json();
+                currentLogs = room.logs || [];
+              if (room.hostClientId === myClientId) {
+                    isHost = true;
+                    myRole = 1; // 房主强制设为玩家1
+                    document.getElementById("btn-start").classList.remove("hidden");
+                    if (room.p1Ready && room.p2Ready && room.winner === 0 && room.history1.length === 0) {
+                        document.getElementById("btn-start").classList.remove("hidden");
+                    }
+                } else {
+                    isHost = false;
+                    myRole = 2; // 其他进入者设为玩家2
+                    document.getElementById("btn-start").classList.add("hidden");
+                }
+                
+                // 【补充这一行】：确保每次同步状态时，网页上的角色文字都是对的
+                document.getElementById("my-role-text").innerText = myRole === 1 ? "你是 Player 1 (黑子 - 房主)" : "你是 Player 2 (白子 - 挑战者)";
+                // 更新对手状态显示
+                const opponentReady = myRole === 1 ? room.p2Ready : room.p1Ready;
+                const oppStatusEl = document.getElementById("opponent-status");
+                
+                if (opponentReady) {
+                    oppStatusEl.innerText = "✅ 代码已编译就绪";
+                    oppStatusEl.style.color = "green";
+                } else {
+                    oppStatusEl.innerText = "⏳ 等待上传/编译中...";
+                    oppStatusEl.style.color = "gray";
+                }
+
+                // 判断当前棋盘是否为空 (用于判断游戏是否处于刚开始/已重置状态)
+                const isBoardEmpty = room.history1.length === 0 && room.history2.length === 0;
+
+                // UI 控制逻辑
+               if (room.winner !== 0) {
+                    // --- 游戏结束状态 ---
+                    let winMsg = `🏆 游戏结束！Bot ${room.winner} (${room.winner === 1 ? '黑子' : '白子'}) 获胜！`;
+                    if (room.errorMessage) winMsg += `\n⚠️ 终止原因: ${room.errorMessage}`;
+                    
+                    document.getElementById("game-info").innerText = winMsg;
+                    document.getElementById("game-info").style.color = "#d32f2f";
+                    document.getElementById("btn-start").classList.add("hidden");
+                    
+                    if (isHost) {
+                        const restartBtn = document.getElementById("btn-restart");
+                        restartBtn.classList.remove("hidden");
+                        restartBtn.disabled = false;
+                    }
+
+                    // 【核心修改】：开启复盘模式
+                    if (!isReplaying) {
+                        isReplaying = true;
+                        replayMoves = [];
+                        let stepCount = 1;
+                        const len = Math.max(room.history1.length, room.history2.length);
+                        // 将双方的历史记录穿插合并，生成正确的时间线
+                        for (let i = 0; i < len; i++) {
+                            if (i < room.history1.length) replayMoves.push({ x: room.history1[i].x, y: room.history1[i].y, player: 1, step: stepCount++ });
+                            if (i < room.history2.length) replayMoves.push({ x: room.history2[i].x, y: room.history2[i].y, player: 2, step: stepCount++ });
+                        }
+                        currentReplayStep = replayMoves.length; // 默认停在最后一步
+                        
+                        document.getElementById("replay-controls").classList.remove("hidden");
+                        updateReplayBoard();
+                    }
+                } else if (room.p1Ready && room.p2Ready) {
+                    // --- 双方就绪，且游戏未结束 ---
+                    document.getElementById("btn-restart").classList.add("hidden");
+
+                    if (isBoardEmpty) {
+                        // 棋盘为空，说明准备开局或刚刚被重置
+                        document.getElementById("game-info").innerText = "✨ 双方已就绪，房主可以点击开始！";
+                        document.getElementById("game-info").style.color = "#e91e63";
+                        
+                        if (isHost) {
+                            const startBtn = document.getElementById("btn-start");
+                            startBtn.classList.remove("hidden");
+                            startBtn.disabled = false;
+                        }
+                    } else {
+                        // 棋盘有子，且没分出胜负，说明对战正在进行中
+                        document.getElementById("game-info").innerText = "⚔️ 对战进行中...";
+                        document.getElementById("game-info").style.color = "#1565c0";
+                        document.getElementById("btn-start").classList.add("hidden");
+                    }
+                }
+
+                // 更新棋盘画面
+                if (!isReplaying) {
+                    drawBoard(room.board);
+                }
+
+            } catch(e) {
+                console.error("同步状态失败:", e);
+            }
+        }
+
+        // 5. 房主点击开始，驱动对局
+        function startGame() {
+            document.getElementById("btn-start").disabled = true;
+            document.getElementById("game-info").innerText = "⚔️ 对战进行中...";
+            document.getElementById("game-info").style.color = "#1565c0";
+            
+            // 房主特权：开启高速循环请求 next-turn
+            driveGame();
+        }
+
+        async function driveGame() {
+            try {
+                const res = await fetch(`${SERVER}/api/room/${currentRoomId}/next-turn`, { method: 'POST' });
+                const room = await res.json();
+                
+                if (room.winner === 0) {
+                    setTimeout(driveGame, 500); // 如果没结束，0.5秒后请求下一步
+                }
+                // (胜负判定会交由 syncRoomState 的轮询去捕捉并停止)
+            } catch (e) {
+                console.error("驱动游戏异常:", e);
+                // 发生网络异常时暂停一段时间重试，避免死循环请求打挂服务器
+                setTimeout(driveGame, 2000); 
+            }
+        }
+        async function restartGame() {
+    try {
+        const restartBtn = document.getElementById("btn-restart");
+        restartBtn.disabled = true; 
+        
+        const res = await fetch(`${SERVER}/api/room/${currentRoomId}/restart`, { method: 'POST' });
+        if (res.ok) {
+            // 手动重置一下提示文字，让用户知道已经在重置了
+            isReplaying = false;
+            document.getElementById("game-info").innerText = "✨ 房间已重置，等待房主开始...";
+            document.getElementById("game-info").style.color = "#e91e63";
+            restartBtn.classList.add("hidden"); // 房主重置后，隐藏重置按钮
+        }
+    } catch (e) {
+        alert("重置房间失败：" + e);
+        document.getElementById("btn-restart").disabled = false;
+    }
+}
+
+        // 辅助：绘制棋盘
+        const boardEl = document.getElementById("board");
+        function initBoard() {
+            boardEl.innerHTML = "";
+            for (let i = 0; i < 15; i++) {
+                for (let j = 0; j < 15; j++) {
+                    const cell = document.createElement("div");
+                    cell.className = "cell";
+                    cell.id = `cell-${i}-${j}`;
+                    boardEl.appendChild(cell);
+                }
+            }
+        }
+
+      function drawBoard(boardArray) {
+            for (let i = 0; i < 15; i++) {
+                for (let j = 0; j < 15; j++) {
+                    const cell = document.getElementById(`cell-${i}-${j}`);
+                    if (!cell) continue;
+                    
+                    const val = boardArray[i][j];
+                    
+                    // 判断 val 是单纯的数字 (0,1,2) 还是回放模式下带有数字的对象 {player, step}
+                    const player = (val !== null && typeof val === 'object') ? val.player : val;
+                    const stepNum = (val !== null && typeof val === 'object') ? val.step : "";
+                    
+                    if (player === 0) {
+                        if (cell.firstChild) cell.innerHTML = "";
+                    } else {
+                        let piece = cell.querySelector('.piece');
+                        if (!piece) {
+                            piece = document.createElement('div');
+                            cell.appendChild(piece);
+                        }
+                        // 更新颜色和步数
+                        piece.className = `piece ${player === 1 ? 'black' : 'white'}`;
+                        piece.innerText = stepNum; 
+                        
+                        const log = currentLogs.find(l => l.x === i && l.y === j);
+                        if (log) {
+                            piece.title = `第 ${log.step} 步\n思考耗时: ${log.responseTime} ms`;
+                            piece.style.cursor = "help"; 
+                        }
+                        // ==========================================
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>
